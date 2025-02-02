@@ -1,24 +1,27 @@
-/*  more02.c  - version 0.2 of more
- *      read and print 24 lines then pause for a few special commands
- *      v02: reads user control cmds from /dev/tty
+/*  more03.c  - version 0.3 of more
+ *      read and print one page then pause for a few special commands
+ *      v03: 
  */
 #include <stdio.h>
 #include <stdlib.h>
-#define  PAGELEN        24
+#include "termfuncs.h"
+//#define  PAGELEN        
 #define  ERROR          1
 #define  SUCCESS        0
 #define  has_more_data(x)   (!feof(x))
 #define CTL_DEV "/dev/tty"              /* source of control commands   */
 
 int  do_more(FILE *);
+int  pagelen[2];
 int  how_much_more(FILE *);
 void print_one_line(FILE *);
+void getPageSize();
 
 int main( int ac , char *av[] )
 {
         FILE    *fp;                    /* stream to view with more     */
         int     result = SUCCESS;       /* return status from main      */
-
+	getPageSize();
         if ( ac == 1 )
                 result = do_more( stdin );
         else
@@ -37,7 +40,7 @@ int main( int ac , char *av[] )
  */
 int do_more( FILE *fp )
 {
-        int     space_left = PAGELEN ;          /* space left on screen */
+        int     space_left = pagelen[0];        /* space left on screen */
         int     reply;                          /* user request         */
         FILE    *fp_tty;                        /* stream to keyboard   */
 
@@ -80,10 +83,22 @@ int how_much_more(FILE *fp)
         {
                 if ( c == 'q' )                 /* q -> N               */
                         return 0;
-                if ( c == ' ' )                 /* ' ' => next page     */
-                        return PAGELEN;         /* how many to show     */
+                if ( c == ' ' )			/* ' ' => next page     */   
+		{
+			getPageSize();  	/* update pagelen       */
+			return pagelen[0];
+		}                 
                 if ( c == '\n' )                /* Enter key => 1 line  */
                         return 1;               
         }
         return 0;
+}
+
+void getPageSize() 
+{
+	if(get_term_size(pagelen) == -1)
+	{
+		fprintf(stderr, "Error reading terminal size");
+		exit(-1);
+	}
 }
