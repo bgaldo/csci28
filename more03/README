@@ -15,4 +15,16 @@ Summary:
 
 Notes:
 
-  put any notes for the grader/reader here
+  Bugs:
+    - A partial last page of a file is not displayed, as the next file prints
+      a full first page at EOF. (resolved)
+    - A '?' is printed at EOF before "More?" (resolved)
+    - Entering 'q' when there are additional files doesn't exit program (fixed)
+    - Running the program with no args/input from stdout breaks 'q' exit (open)
+    - Tabs are not handled correctly (open)
+    - Running more03 on a dynamic file like 'top' breaks things. Running more 
+      broke things worse though. (open)
+    - Sometimes more03 does not adjust to a resized window until the second 
+      line/page is printed. More has similar behavior. (open)
+
+  
