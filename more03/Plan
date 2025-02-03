@@ -27,10 +27,15 @@ of text, then asks again.
 
 Layering:
 
-	main ,for each file, calls:
+	main calls getPageSize once to get initial terminal size,
+	then for each file, calls:
 		do_more	-- which pages through a file calling
 			print_one_line
 			how_much_more -- to ask user how much more to show
+			    -- calls rawgetc to read user input from keyboard
+				-- calls getPageSize to update terminal size. 
+				    -- getPageSize calls get_term_size. 
+				
 
 File Structure:
 
