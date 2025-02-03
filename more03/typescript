@@ -1,0 +1,133 @@
+Script started on 2025-02-02 21:23:38-05:00 [TERM="xterm-256color" TTY="/dev/pts/11" COLUMNS="135" LINES="38"]
+[?2004h]0;eatmo@laptop: ~/csci28/more03[01;32meatmo@laptop[00m:[01;34m~/csci28/more03[00m$ ./more03 more03.c
+[?2004l/*  more03.c  - version 0.3 of more
+ *      read and print one page then pause for a few special commands
+ *      v03: 
+ */
+#include <stdio.h>
+#include <stdlib.h>
+#include "termfuncs.h"     
+#define  ERROR          1
+#define  SUCCESS        0
+#define  has_more_data(x)   (!feof(x))
+#define CTL_DEV "/dev/tty"              /* source of control commands   */
+
+int  do_more(FILE *, int *pagelen);
+int  how_much_more(FILE *, int *pagelen);
+void print_one_line(FILE *, int *pagelen);
+void getPageSize(int *pagelen);
+
+int main( int ac , char *av[] )
+{
+        int  pagelen[2];		/* val[0]=rows, val[1]=cols     */
+	FILE    *fp;                    /* stream to view with more     */
+        int     result = SUCCESS;       /* return status from main      */
+	getPageSize(pagelen);           /* get initial teminal size     */
+        if ( ac == 1 )
+                result = do_more( stdin, pagelen );
+        else
+                while ( result == SUCCESS && --ac )
+                        if ( (fp = fopen( *++av , "r" )) != NULL ) {
+                                result = do_more( fp, pagelen ) ; 
+                                fclose( fp );
+                        }
+                        else
+                                result = ERROR;
+        return result;
+}
+/*  do_more -- show a page of text, then call how_much_more() for instructions
+ *      args: FILE * opened to text to display
+[7m more? [m                           *      rets: SUCCESS if ok, ERROR if not
+[7m more? [m                           */
+[7m more? [m                          int do_more( FILE *fp, int *pagelen )
+[7m more? [m                          {
+        int     space_left = pagelen[0] - 1;     /* space left on screen */
+        int     reply;                           /* user request         */
+        FILE    *fp_tty;                         /* stream to keyboard   */
+
+        fp_tty = fopen( CTL_DEV, "r" );          /* connect to keyboard  */
+        while ( has_more_data( fp ) ) {          /* more input   */
+                if ( space_left <= 0 ) {         /* screen full? */
+			printf("\033[7m more? \033[m"); /*reverse on a vt100 */
+                        reply = how_much_more(fp_tty, pagelen); /* ask user  */
+			fprintf(stdout, "\r                          \r");
+                        if ( reply == 0 )        /*    n: done    */
+                                exit(0);	 /* exit if user enters 'q'  */
+                        space_left = reply;      /* reset count   */
+                }
+		print_one_line( fp, pagelen );
+                space_left--;		         /* count it      */     
+        }
+        fclose( fp_tty );                       /* disconnect keyboard   */
+	pagelen[0] = 0;				/* set to 0 for next file*/
+        return SUCCESS;                         /* EOF => done           */
+}
+
+/*  print_one_line(fp) -- copy data from input to stdout until \n or EOF */
+void print_one_line( FILE *fp, int* pagelen)
+{
+        int     c;
+	int 	charCount = 0; /* chars printed (doesn't account for tabs)*/
+        while( ( c = getc(fp) ) != EOF && c != '\n' )
+	{
+		putchar(c);
+		if (++charCount == pagelen[1])  /* add check for line length */
+		{
+			putchar('\n');
+			return;
+		}
+	}
+[7m more? [m                          	if (c == EOF) 				/* print prompt at EOF       */
+[7m more? [m                          	{
+		printf("\033[7m more? - Next File\r \033[m");
+	}
+	else putchar( c );
+}
+
+/*  how_much_more -- ask user how much more to show
+ *      args: none
+ *      rets: number of additional lines to show: 0 => all done
+ *      note: space => screenful, 'q' => quit, '\n' => one line
+ */
+int how_much_more(FILE *fp, int *pagelen)
+{
+        int     c;
+	getPageSize(pagelen);  	                /* update pagelen          */
+        while( (c = rawgetc(fp)) != EOF )       /* get user input          */
+        {
+                if ( c == 'q' )                 /* q -> N                  */
+                        return 0;
+                if ( c == ' ' )			/* ' ' => next page        */   
+		{
+			return pagelen[0] - 1;  /* leave 1 line for prompt */
+		}                 
+                if ( c == '\n' )                /* Enter key => 1 line     */
+                        return 1;               
+        }
+        return 0;
+}
+
+/* Updates the current terminal size. Exits with -1 if get_term_size fails */
+void getPageSize(int *pagelen) 
+{
+	if(get_term_size(pagelen) == -1)
+	{
+		fprintf(stderr, "Error reading terminal size");
+		exit(-1);
+	}
+[7m more? [m                          }[7m more? - Next File [m[?2004h]0;eatmo@laptop: ~/csci28/more03[01;32meatmo@laptop[00m:[01;34m~/csci28/more03[00m$ last | ./more03
+[?2004lroot     pts/3                         Sun Feb  2 00:12    gone - no logout
+eatmo    pts/1                         Sun Feb  2 00:12    gone - no logout
+reboot   system boot  5.15.167.4-micro Sun Feb  2 00:12   still running
+root     pts/3                         Sat Feb  1 00:14 - crash  (23:58)
+eatmo    pts/1                         Sat Feb  1 00:14 - crash  (23:58)
+reboot   system boot  5.15.167.4-micro Sat Feb  1 00:14   still running
+root     pts/3                         Thu Jan 30 19:56 - crash (1+04:18)
+eatmo    pts/1                         Thu Jan 30 19:56 - crash (1+04:18)
+reboot   system boot  5.15.167.4-micro Thu Jan 30 19:56   still running
+
+wtmp begins Thu Jan 30 19:56:09 2025
+[7m more? - Next File [m[?2004h]0;eatmo@laptop: ~/csci28/more03[01;32meatmo@laptop[00m:[01;34m~/csci28/more03[00m$ exit
+[?2004lexit
+
+Script done on 2025-02-02 21:26:13-05:00 [COMMAND_EXIT_CODE="0"]
