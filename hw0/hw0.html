@@ -1,0 +1,149 @@
+<html>
+<head>
+ <title>CSCI-E28 Homework 0</title>
+</head>
+<body bgcolor=white>
+<p>
+<table width=100% border=0>
+<tr>
+  <td align=left ><font size=+1 color=green>CSCI-E28</font></td>
+  <td align=right><font size=+1 color=blue>Homework 0: Not to be turned in</font></td>
+</tr>
+</table>
+<hr>
+<p>
+<p>
+<center>
+<table width="90%">
+<tr><td>
+<B>Introduction</B>
+<p>
+The purpose of this assignment is to review basic Unix and C skills
+and help you figure out if you are prepared for this course.  Work
+through the following exercises.  You should of course feel free to
+refer to any Unix/C books and/or on-line documentation you like.
+You should find the C exercises pretty easy.  If you don't, think
+carefully before enrolling.  You should find the Unix exercises
+easy or you should be able to locate the information in the manuals.
+If you don't, find a good Unix book and start exploring.
+<p>
+Solutions to these problems will be available at the second lecture.
+<p>
+<B>The Exercises</B>
+<p>
+<ol>
+<li>
+Explain the purpose of the following Unix commands: <tt>ls, cat, rm,
+cp, mv, mkdir, cc</tt>.
+<p>
+<li>
+Using your favorite editor, create a small text file.  Use <tt>cat</tt> to
+create another file consisting of five repetitions of this small text file.
+<p>
+Use <tt>wc</tt> to count the number of characters and words in the original
+file and in the one you made from it.  Explain the result.
+<p>
+Create a subdirectory and move the two files into it.
+<p>
+<li>
+Create a file containing a directory listing of both your home directory
+and the directory <tt> /bin</tt>.
+<p>
+<li>
+Devise a single command line that displays the number of users currently
+logged onto your system.
+<p>
+<li>
+Write, compile, and execute a C program that prints a welcoming message
+of your choice.
+<p>
+<li>
+Write, compile, and execute a C program that prints its arguments.
+<p>
+<li>
+Using <tt>getchar()</tt> write a program that counts
+the number of words, lines, and characters in its input.
+<p>
+<li>
+Create a file containing a C function that prints the message 
+<tt>"hello, world"</tt>.  Create a separate file containing the main
+program which calls this function.  Compile and link the resulting
+program, calling it <tt>hw</tt>.
+<p>
+<li>
+Look up the entries for the following topics in your system's manual;
+the <tt>cat</tt> command, the <tt>printf</tt> function, and the <tt>write</tt>
+system call.
+<p>
+<li>
+<i>You Must Try This One</i>  
+There are two parts to the problem.  If you are not able to do the
+first part of this problem, you are not prepared to take this class.
+If you find the second part extremely tricky, you will find the
+assignments for the course difficult and potentially more time consuming
+than you expect.
+<p>
+<table border=0 cellpadding=2 cellspacing=1>
+<tr><td valign=top><b>part 1</b></td><td>
+	Write a program that prints a range of lines from a text file.
+	The program should take command line arguments of the form:
+	<pre> lrange 10 20 filename </pre>
+	or <pre>lrange 10 20</pre>
+	will print lines 10 through 20 of the named file.
+	If there is no named file the program prints lines read from
+	standard input.
+	If there are not enough lines in the file, the program should
+	print what it can.
+	<p>
+	Your program should work for input with any number of lines.
+	Your program should work for lines of any length.
+	</td>
+</tr>
+<tr><td valign=top><b>part 2</b></td><td>
+	Write a program called <tt>last10</tt> that prints the last
+	ten lines of a text file.  The program can be used from the
+	command line with:
+	<pre>last10 filename</pre>
+              If there is no filename, last10 processes standard input.
+	<p>
+	Your program should work for input with any number of lines.
+	</td>
+</tr>
+</table>
+<li><i>Structs and Pointers</i> You must try this one, too.
+Write a function that computes some basic statistics for a list of
+numbers and stores those results in parts of a struct.  In particular,
+given this definition:
+<pre>struct numlist {  float *list;   /* points to list of numbers */
+                  int   len;     /* number of items in list   */
+                  float min,     /* the minimal value in list */
+                        max,     /* the maximal value in list */
+                        avg;     /* the mean of the numbers   */
+                };</pre>
+write a function <tt>compute_stats(struct numlist *listptr)</tt> that
+takes as an argument a pointer to a struct numlist with <i>list</i> and <i>len</i>
+already initialized and computes and fills in the other three members.
+Write a program that uses this function to process user input and print
+results.
+</li>
+<p>
+<li><i>Dynamic Memory Management</i> This one is an important skill.
+Write a C program that reads in an arbitrary number
+of lines then prints those lines in reverse order.  The lengths of the lines may be
+limited to a fixed maximum. but the number of lines is limited only by system memory
+available.  
+<p>
+For a slightly greater challenge, support
+a <b>-b</b> command line option that causes each line to be printed out
+backwards.
+<p>
+The program, like most Unix tools, reads from a file if a filename is given
+or from standard input if no filename is given on the command line.
+<p>
+Running this program on its own output should produce the original input.
+For example
+<pre style='margin-left: 20px;'>./reverse /etc/passwd | ./reverse > rev2
+diff rev2 /etc/passwd</pre>
+should show no differences.
+
+</li>
