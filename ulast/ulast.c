@@ -5,6 +5,7 @@
 #include	<fcntl.h>
 #include	<time.h>
 #include	<stdlib.h>
+#include    <string.h>
 
 /****************************************************
  *   ulast.c                                        *
@@ -18,46 +19,88 @@
 #define TEXTDATE
         #ifndef	DATE_FMT
                 #ifdef	TEXTDATE
-                        #define	DATE_FMT	"%b %e %H:%M"	 /* text format	*/
+                        #define	DATE_FMT	"%a %b %e %H:%M"  /* text format */
                 #else
-                        #define	DATE_FMT	"%Y-%m-%d %H:%M" /* the default	*/
+                        #define	DATE_FMT	"%Y-%m-%d %H:%M"  /* the default */
                 #endif
         #endif
-
+void showtime( time_t , char * );
 void show_info( struct utmp *);
+void read_file(int, struct utmp *, char *);
+
 int main(int ac, char *av[])
 {
 	struct utmp	utbuf;	/* read info into here */
 	int	   utmpfd;		/* read from this descriptor */
-	char   *info = ( ac > 1 ? av[1] : UTMP_FILE);
-    off_t  filepos;
+	char   *info; //= ( ac > 1 ? av[1] : UTMP_FILE);
+    char   *usrName;
+
+    // Check args
+    if (ac < 2 || ac != 4 ) {
+        fprintf(stderr, "Usage: ./ulast USER [-f FILENAME] \n");
+        exit(-1);
+    }
+    if (ac == 2) {
+        usrName = av[1];
+    }
+    else if (ac == 4) {
+        if (strcmp(av[1], "-f") == 0) {
+            info = av[2];
+            usrName = av[3];
+        }
+        else {
+            usrName = av[1];   
+            if (strcmp(av[2], "-f") == 0) {
+                info = av[3];         
+            }
+            else {
+                fprintf(stderr, "Usage: ./ulast USER [-f FILENAME] \n");
+                exit(-1);                
+            }
+        }
+    }
+
 	if ( (utmpfd = open( info, O_RDONLY )) == -1 ){
 		fprintf(stderr,"%s: cannot open %s\n", *av, info );
 		exit(1);
 	}
-    filepos = lseek(utmpfd, 0, SEEK_END);
-    if (filepos < sizeof(utbuf)) {
-        printf("Error reading file");
-        exit(-1);
-    }
-    if (filepos % sizeof(utbuf) != 0) {
-        printf("skipping incomplete entry!\n");
-        filepos = lseek(utmpfd, -(filepos % sizeof(utbuf)), SEEK_CUR);
-    }
-    filepos = lseek(utmpfd, -sizeof(utbuf), SEEK_CUR);  // Set filepos to beginning of last entry
-    //printf("%ld\n", filepos);
     
-
-	while (filepos >= 0 && read( utmpfd, &utbuf, sizeof(utbuf) ) == sizeof(utbuf) ) {
-        //filepos = lseek(utmpfd, -(2*(sizeof(utbuf))), SEEK_CUR);
-        filepos = lseek(utmpfd, filepos-sizeof(utbuf), SEEK_SET);
-        show_info( &utbuf );
-    }
+    read_file(utmpfd, &utbuf, usrName);
  	close( utmpfd );
 	return 0;
 }
 
-    /*
+void read_file(int utmpfd, struct utmp *utbuf, char *usrName)
+{
+    off_t  filepos;
+    size_t buffSize = sizeof(*utbuf);
+    pid_t  pid;
+
+    //Move file offset to EOF
+    filepos = lseek(utmpfd, 0, SEEK_END);
+    if (filepos < buffSize) {
+        printf("Error reading file");
+        exit(-1);
+    }
+
+    // Start reading file from end to beginning
+    if (filepos % buffSize != 0) {                 // Check for corrupted final entry
+        printf("skipping incomplete entry!\n");
+        filepos = lseek(utmpfd, -(filepos % buffSize), SEEK_CUR);
+    }
+    filepos = lseek(utmpfd, -buffSize, SEEK_CUR);  // Set filepos to beginning of last entry
+
+	while (filepos >= 0 && read( utmpfd, utbuf, buffSize) == buffSize ) {
+        filepos = lseek(utmpfd, filepos-buffSize, SEEK_SET);
+        if (strncmp(utbuf->ut_name, usrName, UT_NAMESIZE) == 0) {
+            show_info( utbuf );
+        }
+    }
+}
+
+
+
+/*
  *	show info()
  *			displays the contents of the utmp struct
  *			in human readable form
@@ -65,19 +108,35 @@ int main(int ac, char *av[])
  */
 void show_info( struct utmp *utbufp )
 {
-	void showtime(time_t, char *);
-
-	if ( utbufp->ut_type != USER_PROCESS && utbufp->ut_type != BOOT_TIME )
+	if ( utbufp->ut_type != USER_PROCESS ) //&& utbufp->ut_type != DEAD_PROCESS )
 		return;
 
 	printf("%-8.32s", utbufp->ut_name);		/* the logname	*/
 		/* better: "%-8.*s",UT_NAMESIZE,utbufp->ut_name) */
 	printf(" ");					/* a space	*/
  	printf("%-12.12s", utbufp->ut_line);		/* the tty	*/
-	printf(" ");					/* a space	*/
-	//showtime( utbufp->ut_time , DATE_FMT);		/* display time	*/
-	if ( utbufp->ut_host[0] != '\0' )		/* if not ""	*/
-		printf(" (%.256s)", utbufp->ut_host);	/*    show host	*/
+	
+    if ( utbufp->ut_host[0] != '\0' )		/* if not ""	*/
+    printf(" %-16.256s", utbufp->ut_host);	/*    show host	*/
+    printf(" ");					/* a space	*/
+	showtime( utbufp->ut_time , DATE_FMT);		/* display time	*/
+
 	printf("\n");					/* newline	*/
+}
+
+#define	MAXDATELEN	100
+
+void showtime( time_t timeval , char *fmt )
+/*
+ * displays time in a format fit for human consumption.
+ * Uses localtime to convert the timeval into a struct of elements
+ * (see localtime(3)) and uses strftime to format the data
+ */
+{
+	char	result[MAXDATELEN];
+
+	struct tm *tp = localtime(&timeval);		/* convert time	*/
+	strftime(result, MAXDATELEN, fmt, tp);		/* format it	*/
+	fputs(result, stdout);
 }
 		
