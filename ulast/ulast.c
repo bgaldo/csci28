@@ -108,8 +108,7 @@ void appendLogout(int fd, struct utmp utbuf, off_t pos, size_t fsize)
     size_t buffSize = sizeof(utbuf);
     pid_t pid = utbuf.ut_pid;
     time_t loginTime = utbuf.ut_time;
-    time_t logoutTime;
-    time_t diff;
+    time_t logoutTime, diff;
 
     while (pos < fsize && read( fd, &utbuf, buffSize) == buffSize ) {
         if (utbuf.ut_pid == pid || utbuf.ut_type==BOOT_TIME) {
