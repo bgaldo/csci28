@@ -17,16 +17,18 @@
 /*       otherwise, program defaults to NUMDATE (1978-02-05)		*/
 
 #define TEXTDATE
-        #ifndef	DATE_FMT
-                #ifdef	TEXTDATE
-                        #define	DATE_FMT	"%a %b %e %H:%M"  /* text format */
-                #else
-                        #define	DATE_FMT	"%Y-%m-%d %H:%M"  /* the default */
-                #endif
-        #endif
+#define	MAXDATELEN	100
+#ifndef	DATE_FMT
+    #ifdef	TEXTDATE
+        #define	DATE_FMT	"%a %b %e %H:%M"  /* text format */
+    #else
+        #define	DATE_FMT	"%Y-%m-%d %H:%M"  /* the default */
+    #endif
+#endif
 void showtime( time_t , char * );
 void show_info( struct utmp *);
 void read_file(int, struct utmp *, char *);
+void appendLogout(int, pid_t, off_t, size_t, size_t);
 
 int main(int ac, char *av[])
 {
@@ -36,12 +38,13 @@ int main(int ac, char *av[])
     char   *usrName;
 
     // Check args
-    if (ac < 2 || ac != 4 ) {
-        fprintf(stderr, "Usage: ./ulast USER [-f FILENAME] \n");
+    if (ac < 2 && ac != 4 ) {
+        fprintf(stderr, "Usage: ./ulast USER [-f FILENAME]\n");
         exit(-1);
     }
     if (ac == 2) {
         usrName = av[1];
+        info = UTMP_FILE;
     }
     else if (ac == 4) {
         if (strcmp(av[1], "-f") == 0) {
@@ -73,11 +76,12 @@ int main(int ac, char *av[])
 void read_file(int utmpfd, struct utmp *utbuf, char *usrName)
 {
     off_t  filepos;
+    size_t filesize;
     size_t buffSize = sizeof(*utbuf);
-    pid_t  pid;
 
     //Move file offset to EOF
     filepos = lseek(utmpfd, 0, SEEK_END);
+    filesize = filepos;
     if (filepos < buffSize) {
         printf("Error reading file");
         exit(-1);
@@ -91,14 +95,35 @@ void read_file(int utmpfd, struct utmp *utbuf, char *usrName)
     filepos = lseek(utmpfd, -buffSize, SEEK_CUR);  // Set filepos to beginning of last entry
 
 	while (filepos >= 0 && read( utmpfd, utbuf, buffSize) == buffSize ) {
-        filepos = lseek(utmpfd, filepos-buffSize, SEEK_SET);
-        if (strncmp(utbuf->ut_name, usrName, UT_NAMESIZE) == 0) {
+        if (strncmp(utbuf->ut_name, usrName, UT_NAMESIZE) == 0 && utbuf->ut_type==USER_PROCESS) {
             show_info( utbuf );
+            appendLogout(utmpfd, utbuf->ut_pid, filepos, filesize, buffSize);
         }
+        filepos = lseek(utmpfd, filepos-buffSize, SEEK_SET);
     }
 }
 
+// TODO: pass utbuf so you can access login time to derive session time or something.
+// TODO: overwrite utbuf with logout instead of creating new tmp buffer
+// TODO: maybe this func should handle the show_info/appendLogout steps instead of read_file 
+void appendLogout(int fd, pid_t pid, off_t pos, size_t fsize, size_t buffSize)
+{
+    struct utmp buf;
+    time_t logoutTime;
 
+    while (pos < fsize && read( fd, &buf, buffSize) == buffSize ) {
+        if (buf.ut_pid == pid || buf.ut_type==BOOT_TIME) {
+            logoutTime = buf.ut_time;
+            printf(" - ");
+            showtime(logoutTime, "%H:%M");
+            printf("\n");
+            return;
+        }
+        pos = lseek(fd, pos+buffSize, SEEK_SET);
+    }
+    printf("   still logged in");
+	printf("\n");					/* newline	*/
+}
 
 /*
  *	show info()
@@ -108,23 +133,16 @@ void read_file(int utmpfd, struct utmp *utbuf, char *usrName)
  */
 void show_info( struct utmp *utbufp )
 {
-	if ( utbufp->ut_type != USER_PROCESS ) //&& utbufp->ut_type != DEAD_PROCESS )
-		return;
-
-	printf("%-8.32s", utbufp->ut_name);		/* the logname	*/
+	printf("%-8.*s",UT_NAMESIZE,utbufp->ut_name);		/* the logname	*/
 		/* better: "%-8.*s",UT_NAMESIZE,utbufp->ut_name) */
 	printf(" ");					/* a space	*/
- 	printf("%-12.12s", utbufp->ut_line);		/* the tty	*/
+ 	printf("%-12.*s",UT_LINESIZE,utbufp->ut_line);		/* the tty	*/
 	
-    if ( utbufp->ut_host[0] != '\0' )		/* if not ""	*/
-    printf(" %-16.256s", utbufp->ut_host);	/*    show host	*/
+    //if ( utbufp->ut_host[0] != '\0' )		/* if not ""	*/
+    printf(" %-16.*s",UT_HOSTSIZE,utbufp->ut_host);	/*    show host	*/
     printf(" ");					/* a space	*/
 	showtime( utbufp->ut_time , DATE_FMT);		/* display time	*/
-
-	printf("\n");					/* newline	*/
 }
-
-#define	MAXDATELEN	100
 
 void showtime( time_t timeval , char *fmt )
 /*
