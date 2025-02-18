@@ -28,7 +28,7 @@
 void showtime( time_t , char * );
 void show_info( struct utmp *);
 void read_file(int, struct utmp *, char *);
-void appendLogout(int, pid_t, off_t, size_t, size_t);
+void appendLogout(int, struct utmp, off_t, size_t);
 
 int main(int ac, char *av[])
 {
@@ -97,26 +97,27 @@ void read_file(int utmpfd, struct utmp *utbuf, char *usrName)
 	while (filepos >= 0 && read( utmpfd, utbuf, buffSize) == buffSize ) {
         if (strncmp(utbuf->ut_name, usrName, UT_NAMESIZE) == 0 && utbuf->ut_type==USER_PROCESS) {
             show_info( utbuf );
-            appendLogout(utmpfd, utbuf->ut_pid, filepos, filesize, buffSize);
+            appendLogout(utmpfd, *utbuf, filepos, filesize);
         }
         filepos = lseek(utmpfd, filepos-buffSize, SEEK_SET);
     }
 }
 
-// TODO: pass utbuf so you can access login time to derive session time or something.
-// TODO: overwrite utbuf with logout instead of creating new tmp buffer
-// TODO: maybe this func should handle the show_info/appendLogout steps instead of read_file 
-void appendLogout(int fd, pid_t pid, off_t pos, size_t fsize, size_t buffSize)
+void appendLogout(int fd, struct utmp utbuf, off_t pos, size_t fsize)
 {
-    struct utmp buf;
+    size_t buffSize = sizeof(utbuf);
+    pid_t pid = utbuf.ut_pid;
+    time_t loginTime = utbuf.ut_time;
     time_t logoutTime;
+    time_t diff;
 
-    while (pos < fsize && read( fd, &buf, buffSize) == buffSize ) {
-        if (buf.ut_pid == pid || buf.ut_type==BOOT_TIME) {
-            logoutTime = buf.ut_time;
+    while (pos < fsize && read( fd, &utbuf, buffSize) == buffSize ) {
+        if (utbuf.ut_pid == pid || utbuf.ut_type==BOOT_TIME) {
+            logoutTime = utbuf.ut_time;
             printf(" - ");
             showtime(logoutTime, "%H:%M");
-            printf("\n");
+            diff = logoutTime-loginTime;
+            printf("  (%02ld:%02ld)\n", (diff / 3600), (diff % 3600 / 60));
             return;
         }
         pos = lseek(fd, pos+buffSize, SEEK_SET);
