@@ -6,6 +6,7 @@
 #include	<time.h>
 #include	<stdlib.h>
 #include    <string.h>
+#include    "utmplib.h"
 
 /****************************************************
  *   ulast.c                                        *
@@ -28,98 +29,110 @@
 void showtime( time_t , char * );
 void show_info( struct utmp *);
 void read_file(int, struct utmp *, char *);
-void appendLogout(int, struct utmp, off_t, size_t);
+void appendLogout(struct utmp, int, int);
 
 int main(int ac, char *av[])
 {
 	struct utmp	utbuf;	/* read info into here */
 	int	   utmpfd;		/* read from this descriptor */
-	char   *info; //= ( ac > 1 ? av[1] : UTMP_FILE);
-    char   *usrName;
-
+	char   *info, *usrName; //= ( ac > 1 ? av[1] : UTMP_FILE);
+    int    showStats = 0, hasFilename=0, hasUsrName=0;
+    int a[2];
+  
     // Check args
-    if (ac < 2 && ac != 4 ) {
+    if (ac < 2 || ac > 5 ) {
         fprintf(stderr, "Usage: ./ulast USER [-f FILENAME]\n");
         exit(-1);
     }
     if (ac == 2) {
         usrName = av[1];
         info = UTMP_FILE;
+        hasUsrName = 1;
+        hasFilename = 1;
     }
-    else if (ac == 4) {
-        if (strcmp(av[1], "-f") == 0) {
-            info = av[2];
-            usrName = av[3];
-        }
-        else {
-            usrName = av[1];   
-            if (strcmp(av[2], "-f") == 0) {
-                info = av[3];         
+    else {
+        for (int i=1; i<ac; i++) {
+            if (strcmp(av[i], "-f")==0 && i<ac-1) {
+                info = av[++i];
+                hasFilename = 1;
+            }
+            else if (strcmp(av[i], "-e")==0) {
+                showStats = 1;
             }
             else {
-                fprintf(stderr, "Usage: ./ulast USER [-f FILENAME] \n");
-                exit(-1);                
+                usrName = av[i];
+                hasUsrName = 1;
             }
         }
     }
+    if (!hasFilename || !hasUsrName || (ac==5 && !showStats)) {
+        fprintf(stderr, "Usage: ./ulast USER [-f FILENAME]\n");
+        exit(-1);        
+    }
 
-	if ( (utmpfd = open( info, O_RDONLY )) == -1 ){
+	if ( (utmpfd = utmp_open(info)) == -1 ){
 		fprintf(stderr,"%s: cannot open %s\n", *av, info );
 		exit(1);
 	}
-    
     read_file(utmpfd, &utbuf, usrName);
- 	close( utmpfd );
+    if(showStats) {
+        utmp_stats(a);
+        fprintf(stderr, "%d records read, %d buffer misses\n", a[0], a[1]);
+    }
+ 	utmp_close();
 	return 0;
 }
 
 void read_file(int utmpfd, struct utmp *utbuf, char *usrName)
 {
-    off_t  filepos;
-    size_t filesize;
-    size_t buffSize = sizeof(*utbuf);
+    int    numRecs, currentRec;
+    numRecs = currentRec = utmp_len();
 
-    //Move file offset to EOF
-    filepos = lseek(utmpfd, 0, SEEK_END);
-    filesize = filepos;
-    if (filepos < buffSize) {
+    if (numRecs < 1) {
         printf("Error reading file");
         exit(-1);
     }
 
     // Start reading file from end to beginning
-    if (filepos % buffSize != 0) {                 // Check for corrupted final entry
-        printf("skipping incomplete entry!\n");
-        filepos = lseek(utmpfd, -(filepos % buffSize), SEEK_CUR);
-    }
-    filepos = lseek(utmpfd, -buffSize, SEEK_CUR);  // Set filepos to beginning of last entry
 
-	while (filepos >= 0 && read( utmpfd, utbuf, buffSize) == buffSize ) {
+	while (--currentRec >= 0) { //&& read( utmpfd, utbuf, buffSize) == buffSize ) {
+        utbuf = utmp_getrec(currentRec);
         if (strncmp(utbuf->ut_name, usrName, UT_NAMESIZE) == 0 && utbuf->ut_type==USER_PROCESS) {
             show_info( utbuf );
-            appendLogout(utmpfd, *utbuf, filepos, filesize);
+            appendLogout(*utbuf, currentRec, numRecs);
         }
-        filepos = lseek(utmpfd, filepos-buffSize, SEEK_SET);
     }
 }
 
-void appendLogout(int fd, struct utmp utbuf, off_t pos, size_t fsize)
+void appendLogout(struct utmp utbuf, int currentRec, int numRecs)
 {
-    size_t buffSize = sizeof(utbuf);
-    pid_t pid = utbuf.ut_pid;
-    time_t loginTime = utbuf.ut_time;
-    time_t logoutTime, diff;
+    struct utmp utp;
+    time_t logoutTime, diff, days, hours, minutes;
 
-    while (pos < fsize && read( fd, &utbuf, buffSize) == buffSize ) {
-        if (utbuf.ut_pid == pid || utbuf.ut_type==BOOT_TIME) {
-            logoutTime = utbuf.ut_time;
+    while (++currentRec < numRecs) {
+        utp = *utmp_getrec(currentRec);
+        if (utp.ut_pid == utbuf.ut_pid || utp.ut_type==BOOT_TIME) {
+            logoutTime = utp.ut_time;
             printf(" - ");
-            showtime(logoutTime, "%H:%M");
-            diff = logoutTime-loginTime;
-            printf("  (%02ld:%02ld)\n", (diff / 3600), (diff % 3600 / 60));
+            if (utp.ut_type==BOOT_TIME) {
+                printf("crash");
+            }
+            else {
+                showtime(logoutTime, "%H:%M");
+            }
+
+            diff = logoutTime-utbuf.ut_time;
+            minutes = diff % 3600 / 60;
+            hours   = diff / 3600 % 24;
+            days    = diff / 3600 / 24;
+            if (days > 0) {
+                printf(" (%ld+%02ld:%02ld)\n",days,hours,minutes);
+            }
+            else {
+                printf("  (%02ld:%02ld)\n", hours, minutes);
+            }
             return;
         }
-        pos = lseek(fd, pos+buffSize, SEEK_SET);
     }
     printf("   still logged in");
 	printf("\n");					/* newline	*/
@@ -157,4 +170,3 @@ void showtime( time_t timeval , char *fmt )
 	strftime(result, MAXDATELEN, fmt, tp);		/* format it	*/
 	fputs(result, stdout);
 }
-		
