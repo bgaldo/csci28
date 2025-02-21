@@ -1,6 +1,7 @@
 #include	<stdio.h>
 #include	<unistd.h>
 #include	<sys/types.h>
+#include    <linux/limits.h>
 #include	<utmp.h>
 #include	<fcntl.h>
 #include	<time.h>
@@ -30,21 +31,22 @@ void showtime( time_t , char * );
 void show_info( struct utmp *);
 void read_file(int, struct utmp *, char *);
 void appendLogout(struct utmp, int, int);
+void printLogout(time_t login, time_t logout);
+int checkArgs(int ac, char*av[], char info[], char usrName[]);
 
 int main(int ac, char *av[])
 {
-	struct utmp	utbuf;	/* read info into here */
-	int	   utmpfd;		/* read from this descriptor */
-	char   *info, *usrName; //= ( ac > 1 ? av[1] : UTMP_FILE);
-    int    showStats = 0, hasFilename=0, hasUsrName=0;
-    int a[2];
+	struct utmp	utbuf;                                 // read info into here
+	int	   utmpfd;		                               // read from this fd 
+	char  info[PATH_MAX], usrName[256];                // filename, user name
+    int   showStats = 0;//, hasFilename=0, hasUsrName=0;  // flags for user input
+    int a[2];                                          // array for stats
   
-    // Check args
-    if (ac < 2 || ac > 5 ) {
+    /*if (ac < 2 || ac > 5 ) {                           // Check args
         fprintf(stderr, "Usage: ./ulast USER [-f FILENAME]\n");
         exit(-1);
     }
-    if (ac == 2) {
+    if (ac == 2) {                                     // User name is only arg
         usrName = av[1];
         info = UTMP_FILE;
         hasUsrName = 1;
@@ -52,15 +54,15 @@ int main(int ac, char *av[])
     }
     else {
         for (int i=1; i<ac; i++) {
-            if (strcmp(av[i], "-f")==0 && i<ac-1) {
-                info = av[++i];
+            if (strcmp(av[i], "-f")==0 && i<ac-1) {    // Look for file arg
+                info = av[++i];                        // Next arg is filename
                 hasFilename = 1;
             }
-            else if (strcmp(av[i], "-e")==0) {
+            else if (strcmp(av[i], "-e")==0) {         // Stats arg
                 showStats = 1;
             }
             else {
-                usrName = av[i];
+                usrName = av[i];                       // Arg is user name
                 hasUsrName = 1;
             }
         }
@@ -68,7 +70,8 @@ int main(int ac, char *av[])
     if (!hasFilename || !hasUsrName || (ac==5 && !showStats)) {
         fprintf(stderr, "Usage: ./ulast USER [-f FILENAME]\n");
         exit(-1);        
-    }
+    }*/
+    showStats = checkArgs(ac, av, info, usrName);
 
 	if ( (utmpfd = utmp_open(info)) == -1 ){
 		fprintf(stderr,"%s: cannot open %s\n", *av, info );
@@ -85,52 +88,81 @@ int main(int ac, char *av[])
 
 void read_file(int utmpfd, struct utmp *utbuf, char *usrName)
 {
-    int    numRecs, currentRec;
-    numRecs = currentRec = utmp_len();
+    int numRecs, currentRec;
+    numRecs = currentRec = utmp_len();                 // Set to last entry
 
-    if (numRecs < 1) {
+    if (numRecs < 1) {                                 // At least 1 entry?
         printf("Error reading file");
         exit(-1);
     }
 
     // Start reading file from end to beginning
-
-	while (--currentRec >= 0) { //&& read( utmpfd, utbuf, buffSize) == buffSize ) {
+	while (--currentRec >= 0) {
         utbuf = utmp_getrec(currentRec);
-        if (strncmp(utbuf->ut_name, usrName, UT_NAMESIZE) == 0 && utbuf->ut_type==USER_PROCESS) {
+        if (strncmp(utbuf->ut_name, usrName, UT_NAMESIZE) == 0 && 
+                    utbuf->ut_type==USER_PROCESS) {
             show_info( utbuf );
             appendLogout(*utbuf, currentRec, numRecs);
         }
     }
 }
 
+int checkArgs(int ac, char*av[], char info[], char usrName[])
+{
+    int   showStats = 0, hasFilename=0, hasUsrName=0;  // flags for user input
+  
+    if (ac < 2 || ac > 5 ) {                           // Check args
+        fprintf(stderr, "Usage: ./ulast USER [-f FILENAME]\n");
+        exit(-1);
+    }
+    if (ac == 2) {                                     // User name is only arg
+        strcpy(usrName, av[1]);
+        strcpy(info, UTMP_FILE);
+        hasUsrName = 1;
+        hasFilename = 1;
+    }
+    else {
+        for (int i=1; i<ac; i++) {
+            if (strcmp(av[i], "-f")==0 && i<ac-1) {    // Look for file arg
+                strcpy(info, av[++i]);                 // Next arg is filename
+                hasFilename = 1;
+            }
+            else if (strcmp(av[i], "-e")==0) {         // Stats arg
+                showStats = 1;
+            }
+            else {
+                strcpy(usrName, av[i]);                       // Arg is user name
+                hasUsrName = 1;
+            }
+        }
+    }
+    if (!hasFilename) {
+        strcpy(info, UTMP_FILE);
+    }
+    if (!hasUsrName || (ac==5 && !showStats)) {
+        fprintf(stderr, "Usage: ./ulast USER [-f FILENAME]\n");
+        exit(-1);        
+    }
+    return showStats;
+}
+
+
 void appendLogout(struct utmp utbuf, int currentRec, int numRecs)
 {
     struct utmp utp;
-    time_t logoutTime, diff, days, hours, minutes;
 
     while (++currentRec < numRecs) {
         utp = *utmp_getrec(currentRec);
         if (utp.ut_pid == utbuf.ut_pid || utp.ut_type==BOOT_TIME) {
-            logoutTime = utp.ut_time;
             printf(" - ");
             if (utp.ut_type==BOOT_TIME) {
                 printf("crash");
             }
             else {
-                showtime(logoutTime, "%H:%M");
+                showtime(utp.ut_time, "%H:%M");
             }
+            printLogout(utbuf.ut_time, utp.ut_time);
 
-            diff = logoutTime-utbuf.ut_time;
-            minutes = diff % 3600 / 60;
-            hours   = diff / 3600 % 24;
-            days    = diff / 3600 / 24;
-            if (days > 0) {
-                printf(" (%ld+%02ld:%02ld)\n",days,hours,minutes);
-            }
-            else {
-                printf("  (%02ld:%02ld)\n", hours, minutes);
-            }
             return;
         }
     }
@@ -139,7 +171,7 @@ void appendLogout(struct utmp utbuf, int currentRec, int numRecs)
 }
 
 /*
- *	show info()
+ *	show info() (!!Borrowed from class example!!)
  *			displays the contents of the utmp struct
  *			in human readable form
  *			* displays nothing if record has no user name
@@ -147,26 +179,44 @@ void appendLogout(struct utmp utbuf, int currentRec, int numRecs)
 void show_info( struct utmp *utbufp )
 {
 	printf("%-8.*s",UT_NAMESIZE,utbufp->ut_name);		/* the logname	*/
-		/* better: "%-8.*s",UT_NAMESIZE,utbufp->ut_name) */
-	printf(" ");					/* a space	*/
- 	printf("%-12.*s",UT_LINESIZE,utbufp->ut_line);		/* the tty	*/
-	
-    //if ( utbufp->ut_host[0] != '\0' )		/* if not ""	*/
-    printf(" %-16.*s",UT_HOSTSIZE,utbufp->ut_host);	/*    show host	*/
-    printf(" ");					/* a space	*/
-	showtime( utbufp->ut_time , DATE_FMT);		/* display time	*/
+	printf(" ");					                    /* a space	    */
+ 	printf("%-12.*s",UT_LINESIZE,utbufp->ut_line);		/* the tty	    */
+    printf(" %-16.*s",UT_HOSTSIZE,utbufp->ut_host);	    /* show host    */
+    printf(" ");					                    /* a space	    */
+	showtime( utbufp->ut_time , DATE_FMT);		        /* display time	*/
 }
 
 void showtime( time_t timeval , char *fmt )
 /*
+ * (!!Borrowed from class example!!)
  * displays time in a format fit for human consumption.
  * Uses localtime to convert the timeval into a struct of elements
  * (see localtime(3)) and uses strftime to format the data
  */
 {
 	char	result[MAXDATELEN];
-
 	struct tm *tp = localtime(&timeval);		/* convert time	*/
 	strftime(result, MAXDATELEN, fmt, tp);		/* format it	*/
 	fputs(result, stdout);
+}
+
+/******************************************************************
+ * printLogout() - calculates duration from login and logout time *
+ *               - prints days, hours, and minutes of session     *
+ ******************************************************************/
+void printLogout(time_t login, time_t logout)
+{
+    time_t diff    = logout-login;                     // Calculate diff
+    time_t minutes = diff % 3600 / 60;                 // Calculate minutes
+    time_t hours   = diff / 3600 % 24;                 // Calculate hours
+    time_t days    = diff / 3600 / 24;                 // Calculate days
+    if (days > 0) {
+        printf(" (%ld+%02ld:%02ld)\n",days,hours,minutes);
+    }
+    else {
+        printf("  (%02ld:%02ld)\n", hours, minutes);
+    }
+    // Probably a better option - fix if time permits
+    //struct tm *dTime = gmtime(&diff);
+    //printf("%d:%02d:%02d\n", dTime->tm_yday, dTime->tm_hour, dTime->tm_min); 
 }
