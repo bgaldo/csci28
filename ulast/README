@@ -12,3 +12,10 @@ README    - this file
 typescript - proof of test/compilation
 Plan       - a plan
 multi-utmp.h - hypothetical header file for part IV
+
+NOTES:
+The default UTMP File in ulast is /var/run/utmp, while the default
+last file is /var/log/wtmp. 
+
+Last does not include the "215" suffix of Bruce's username in the output.
+Ulast does include this, which I consider to be a feature--not a bug.
