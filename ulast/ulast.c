@@ -29,7 +29,7 @@
 #endif
 void showtime( time_t , char * );
 void show_info( struct utmp *);
-void read_file(int, struct utmp *, char *);
+void read_file(struct utmp *, char *);
 void appendLogout(struct utmp, int, int);
 void printLogout(time_t login, time_t logout);
 int checkArgs(int ac, char*av[], char info[], char usrName[]);
@@ -39,45 +39,16 @@ int main(int ac, char *av[])
 	struct utmp	utbuf;                                 // read info into here
 	int	   utmpfd;		                               // read from this fd 
 	char  info[PATH_MAX], usrName[256];                // filename, user name
-    int   showStats = 0;//, hasFilename=0, hasUsrName=0;  // flags for user input
+    int   showStats = 0;                               // flags for user input
     int a[2];                                          // array for stats
   
-    /*if (ac < 2 || ac > 5 ) {                           // Check args
-        fprintf(stderr, "Usage: ./ulast USER [-f FILENAME]\n");
-        exit(-1);
-    }
-    if (ac == 2) {                                     // User name is only arg
-        usrName = av[1];
-        info = UTMP_FILE;
-        hasUsrName = 1;
-        hasFilename = 1;
-    }
-    else {
-        for (int i=1; i<ac; i++) {
-            if (strcmp(av[i], "-f")==0 && i<ac-1) {    // Look for file arg
-                info = av[++i];                        // Next arg is filename
-                hasFilename = 1;
-            }
-            else if (strcmp(av[i], "-e")==0) {         // Stats arg
-                showStats = 1;
-            }
-            else {
-                usrName = av[i];                       // Arg is user name
-                hasUsrName = 1;
-            }
-        }
-    }
-    if (!hasFilename || !hasUsrName || (ac==5 && !showStats)) {
-        fprintf(stderr, "Usage: ./ulast USER [-f FILENAME]\n");
-        exit(-1);        
-    }*/
     showStats = checkArgs(ac, av, info, usrName);
 
 	if ( (utmpfd = utmp_open(info)) == -1 ){
 		fprintf(stderr,"%s: cannot open %s\n", *av, info );
 		exit(1);
 	}
-    read_file(utmpfd, &utbuf, usrName);
+    read_file(&utbuf, usrName);
     if(showStats) {
         utmp_stats(a);
         fprintf(stderr, "%d records read, %d buffer misses\n", a[0], a[1]);
@@ -86,7 +57,14 @@ int main(int ac, char *av[])
 	return 0;
 }
 
-void read_file(int utmpfd, struct utmp *utbuf, char *usrName)
+/************************************************************************
+ * read_file()        - Reads UTMP file entries from last to first      *
+ *                      looking for userName logins.                    *
+ *                    - When userNAme login is found, calls show_info() *
+ *                      and appendLogout to display session info        *
+ *                    - Exits with error code if UTMP file is empty.    *
+ ************************************************************************/
+void read_file(struct utmp *utbuf, char *usrName)
 {
     int numRecs, currentRec;
     numRecs = currentRec = utmp_len();                 // Set to last entry
@@ -107,6 +85,14 @@ void read_file(int utmpfd, struct utmp *utbuf, char *usrName)
     }
 }
 
+/*********************************************************************
+ * checkArgs() - checks command line arguments                       *
+ *             - Exits with error code if no userName is entered     *
+ *               or if too many args are given.                      *
+ *             - Returns 1 if -e option is given, 0 if not           *
+ *             - Copies filename and userName into char arrays       *
+ *             - If no file is given, default UTMP file is used      *
+ *********************************************************************/
 int checkArgs(int ac, char*av[], char info[], char usrName[])
 {
     int   showStats = 0, hasFilename=0, hasUsrName=0;  // flags for user input
@@ -117,9 +103,7 @@ int checkArgs(int ac, char*av[], char info[], char usrName[])
     }
     if (ac == 2) {                                     // User name is only arg
         strcpy(usrName, av[1]);
-        strcpy(info, UTMP_FILE);
         hasUsrName = 1;
-        hasFilename = 1;
     }
     else {
         for (int i=1; i<ac; i++) {
@@ -131,13 +115,13 @@ int checkArgs(int ac, char*av[], char info[], char usrName[])
                 showStats = 1;
             }
             else {
-                strcpy(usrName, av[i]);                       // Arg is user name
+                strcpy(usrName, av[i]);                 // Arg is user name
                 hasUsrName = 1;
             }
         }
     }
     if (!hasFilename) {
-        strcpy(info, UTMP_FILE);
+        strcpy(info, UTMP_FILE);                        // /var/run/utmp
     }
     if (!hasUsrName || (ac==5 && !showStats)) {
         fprintf(stderr, "Usage: ./ulast USER [-f FILENAME]\n");
@@ -146,22 +130,28 @@ int checkArgs(int ac, char*av[], char info[], char usrName[])
     return showStats;
 }
 
-
+/*****************************************************************************
+ * appendLogout()       - Takes a utemp login entry as input along with the  *
+ *                        current record index and the last record index.    *
+ *                      - Reads towards end of file to find session logout,  *
+ *                        or reboot to indicate end of session.              *
+ *                      - Appends logout time and duration to session info   * 
+ *****************************************************************************/
 void appendLogout(struct utmp utbuf, int currentRec, int numRecs)
 {
     struct utmp utp;
 
-    while (++currentRec < numRecs) {
-        utp = *utmp_getrec(currentRec);
+    while (++currentRec < numRecs) {                 // Stop at EOF
+        utp = *utmp_getrec(currentRec);              // Get next record
         if (utp.ut_pid == utbuf.ut_pid || utp.ut_type==BOOT_TIME) {
-            printf(" - ");
+            printf(" - ");                           // Found logout 
             if (utp.ut_type==BOOT_TIME) {
-                printf("crash");
+                printf("crash");                     // Found crash
             }
             else {
-                showtime(utp.ut_time, "%H:%M");
+                showtime(utp.ut_time, "%H:%M");      // Print logout time
             }
-            printLogout(utbuf.ut_time, utp.ut_time);
+            printLogout(utbuf.ut_time, utp.ut_time); // Print duration
 
             return;
         }
