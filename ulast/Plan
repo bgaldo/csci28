@@ -1,0 +1,78 @@
+Design Document for ulast
+-----------------------------------------------------------
+Code by: Ben Galdo
+Date: 02/20/2025
+History: Used all my late days due to illness :(
+-----------------------------------------------------------
+
+Purpose:
+
+The purpose of ulast is to mimic the behavior of last; that is, 
+ulast will scan a file of utmp entries and list the sessions for 
+a given user from most recent to oldest. Ulast incorporates buffering
+to provide performance gains by making less trips to the grocery store
+(aka the disk.)
+
+Ouline:
+
+The main function calls a helper function, checkArgs(), to parse the user 
+arguments. These must include a user name, along with an optional filename
+and the -e option, which will report buffering efficiency after the program
+completes.
+
+Main then calls read_file(), which is where most of the business happens. 
+read_file calls utmp_len to get the number of records in the utmp file, and
+then scans the file from end to start by calling utmp_getrec() and looks for
+a login entry from the desired user. When one is found, show_info() is called
+to do just that, and then appendLogout() is called to find and append the 
+logout entry and calculate duration.  
+
+There are several helper functions in ulast that assist with parsing time
+values. Also, the utmplib library contains several functions to improve 
+performance by buffering disk reads. 
+
+Layering:
+
+Main
+     - checkArgs()
+     - utmp_open()
+     - read_file()
+        - utmp_len()
+        - utmp_getrec()
+        - show_info()
+            -showTime()
+        - appendLogout()
+            - utmp_getrec()
+            - showTime()
+            - printLogout()
+
+
+File Structure:
+
+        ulast.c        --  the main program
+        utmplib.c      -- a toolkit for buffering utmp entry reads
+
+PART V: Processing Multiple utmp Files
+
+To improve this program such that it can open multiple utmp files at once, 
+one would create a utmp file struct. This struct would contain all the info
+necessary to read entries from a file . We will define such a struct here as:
+
+struct utmpFile
+int fd             - file descriptor
+int stats[2]       - array to hold stats
+struct utmp* utbuf - array to hold buffered utmp entries
+off_t filepos      - current file position
+int index, numRecs - current index and total number of records
+
+utmp_open() will still take a filename as its only parameter, but instead of
+returning an int for the file descriptor, it will return a pointer to a new 
+utmpFile struct, which it has initialized with the file descriptor, zero-filled
+stats array, buffer for a page of utmp entries, and the current index and numrecs.
+
+utmp_close() will not only close the file and return the stats (if the -e option is 
+specified), but it must also free the memory that has been allocated for the utmpFile
+struct and the utmp buffer. It will return the pointer to the stats array, and take
+the file descriptor for the file to close as it's parameter. 
+
+See: multi_utmp.h for hypothetical header file function declarations.

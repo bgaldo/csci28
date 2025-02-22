@@ -1,8 +1,14 @@
-README -- ~lib215/hw/llast/samples
+README -- HW01 - ulast
+Ben Galdo
+beg867@g.harvard.edu
+02/21/2025
 
-These wtmp files are all generated on a GNU/Linux machine.
-
-The format of wtmp files varies from one version of Unix to
-another.  The version on Mac OSX is very different from these.
-If you use AIX or HPUX or FreeBSD, please consult your online
-manuals for their file format.
+Files:
+ulast.c - main program file
+utmplib.c - toolkit for buffered reads
+utmplib.h - header for utmplib
+Makefile  - type make to make the files
+README    - this file
+typescript - proof of test/compilation
+Plan       - a plan
+multi-utmp.h - hypothetical header file for part IV

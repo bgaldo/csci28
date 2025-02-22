@@ -1,0 +1,41 @@
+Script started on 2025-02-21 20:50:38-05:00 [TERM="xterm-256color" TTY="/dev/pts/0" COLUMNS="209" LINES="51"]
+[?2004h]0;eatmo@laptop: ~/csci28/ulast[01;32meatmo@laptop[00m:[01;34m~/csci28/ulast[00m$ make
+[?2004lmake: 'ulast' is up to date.
+[?2004h]0;eatmo@laptop: ~/csci28/ulast[01;32meatmo@laptop[00m:[01;34m~/csci28/ulast[00m$ last gayle -f wtmp-big >[K-e[1@.[1@/[1@u[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C
+[?2004lgayle    pts/4        10.0.13.136      Thu Dec  7 19:24 - 19:25  (00:00)
+gayle    pts/2        10.0.13.136      Thu Dec  7 09:55 - 13:38  (03:43)
+gayle    pts/1        10.0.13.136      Thu Dec  7 09:55 - 13:53  (03:58)
+gayle    pts/3        10.0.13.136      Wed Dec  6 23:36 - 01:25  (01:49)
+gayle    pts/13       10.0.13.136      Wed Dec  6 12:18 - 16:03  (03:44)
+gayle    pts/11       10.0.13.136      Wed Dec  6 12:18 - 14:47  (02:28)
+gayle    pts/11       10.0.13.136      Tue Dec  5 18:55 - 20:39  (01:43)
+3324 records read, 340 buffer misses
+[?2004h]0;eatmo@laptop: ~/csci28/ulast[01;32meatmo@laptop[00m:[01;34m~/csci28/ulast[00m$ ./ulast -f
+[?2004l[?2004h]0;eatmo@laptop: ~/csci28/ulast[01;32meatmo@laptop[00m:[01;34m~/csci28/ulast[00m$ ./ulast -f -f
+[?2004lUsage: ./ulast USER [-f FILENAME]
+[?2004h]0;eatmo@laptop: ~/csci28/ulast[01;32meatmo@laptop[00m:[01;34m~/csci28/ulast[00m$ ./ulast -f -f[K[K[K /var/log/wtmp eatmo
+[?2004leatmo    pts/1                         Mon Feb 17 19:23   still logged in
+eatmo    pts/1                         Sun Feb 16 10:30 - crash (1+08:52)
+eatmo    pts/1                         Sun Feb 16 01:23 - crash  (09:07)
+eatmo    pts/3                         Sun Feb 16 01:22 - crash  (00:00)
+eatmo    pts/1                         Wed Feb  5 19:43 - crash (10+05:39)
+eatmo    pts/1                         Sun Feb  2 00:12 - crash (3+19:30)
+eatmo    pts/1                         Sat Feb  1 00:14 - crash  (23:58)
+eatmo    pts/1                         Thu Jan 30 19:56 - crash (1+04:18)
+[?2004h]0;eatmo@laptop: ~/csci28/ulast[01;32meatmo@laptop[00m:[01;34m~/csci28/ulast[00m$ last -f /var/log/wtmp eatmo
+[?2004leatmo    pts/1                         Mon Feb 17 19:23    gone - no logout
+eatmo    pts/1                         Sun Feb 16 10:30 - crash (1+08:52)
+eatmo    pts/1                         Sun Feb 16 01:23 - crash  (09:07)
+eatmo    pts/3                         Sun Feb 16 01:22 - crash  (00:00)
+eatmo    pts/1                         Wed Feb  5 19:43 - crash (10+05:39)
+eatmo    pts/1                         Sun Feb  2 00:12 - crash (3+19:30)
+eatmo    pts/1                         Sat Feb  1 00:14 - crash  (23:58)
+eatmo    pts/1                         Thu Jan 30 19:56 - crash (1+04:18)
+
+wtmp begins Thu Jan 30 19:56:09 2025
+[?2004h]0;eatmo@laptop: ~/csci28/ulast[01;32meatmo@laptop[00m:[01;34m~/csci28/ulast[00m$ lastr[K[K[K[K[K./ulast bigbird -e
+[?2004l6 records read, 1 buffer misses
+[?2004h]0;eatmo@laptop: ~/csci28/ulast[01;32meatmo@laptop[00m:[01;34m~/csci28/ulast[00m$ exit
+[?2004lexit
+
+Script done on 2025-02-21 20:53:24-05:00 [COMMAND_EXIT_CODE="0"]
